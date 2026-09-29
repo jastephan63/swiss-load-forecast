@@ -269,14 +269,14 @@ def anomalies(
         ax.scatter(
             days, vals, color=color, s=40, zorder=3, label=label, edgecolor=SURFACE, linewidth=1.5
         )
-    ax.set_title("Top real anomalies flagged by each method (daily mean load for context)")
+    ax.set_title("Top 10 real anomalies per method, shown on daily mean load")
     ax.set_ylabel("MW")
-    ax.legend(loc="upper right")
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.1), ncols=3)
     if example is not None:
         clean, corrupted, res_flag, if_flag, events = example
         ax2 = axes[1]
         idx = _local_index(corrupted.index, tz)
-        ax2.plot(idx, clean.to_numpy(), color=INK_2, lw=1.0, label="Original")
+        ax2.plot(idx, clean.to_numpy(), color=BLUE, lw=1.2, label="Original")
         ax2.plot(idx, corrupted.to_numpy(), color=INK, lw=1.4, label="With injected anomalies")
         ymin, ymax = float(corrupted.min()), float(corrupted.max())
         for e in events.itertuples():
@@ -290,20 +290,22 @@ def anomalies(
             idx[rf],
             np.full(rf.sum(), ymin - 150),
             color=ORANGE,
-            s=10,
+            s=120,
             marker="|",
+            linewidths=2,
             label="Residual flag",
         )
         ax2.scatter(
             idx[ff],
             np.full(ff.sum(), ymin - 300),
             color=VIOLET,
-            s=10,
+            s=120,
             marker="|",
-            label="Isolation Forest flag",
+            linewidths=2,
+            label="Isolation Forest or flatline rule",
         )
         ax2.set_title("Synthetic anomaly example (shaded = injected, ticks = detections)")
         ax2.set_ylabel("MW (15-minute)")
         ax2.xaxis.set_major_formatter(mdates.DateFormatter("%a %d %b"))
-        ax2.legend(loc="upper left", ncols=2)
+        ax2.legend(loc="upper center", bbox_to_anchor=(0.5, -0.1), ncols=4)
     _save(fig, path)

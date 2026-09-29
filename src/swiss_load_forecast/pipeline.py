@@ -12,6 +12,7 @@ from swiss_load_forecast import plots
 from swiss_load_forecast.anomaly import (
     IsolationForestDetector,
     detection_metrics,
+    flatline_flags,
     if_features,
     inject_anomalies,
     residual_scores,
@@ -276,9 +277,12 @@ def run_anomalies(cfg: Config) -> dict[str, pd.DataFrame]:
     )
     if_events = if_events.sort_values("max_score", ascending=False)
     if_events.to_csv(reports / "anomalies_isolation_forest_all.csv", index=False)
-    _, weather = read_hourly(cfg)
+    load_hourly, weather = read_hourly(cfg)
     test15 = q15[q15.index >= test_start]
     inj = a["injection"]
+    min_run = int(a["flatline_min_run"])
+    flat_real = flatline_flags(q15, min_run)
+    flat_real.to_frame().query("flatline_flag").to_csv(reports / "anomalies_flatline_rule.csv")
     rows = []
     example = None
     for seed in inj["seeds"]:
@@ -296,10 +300,13 @@ def run_anomalies(cfg: Config) -> dict[str, pd.DataFrame]:
             index=corrupted.index,
         )
         if_flag = detector.flag(if_features(full15, tz).loc[corrupted.index])
+        flat_flag = flatline_flags(corrupted, min_run)
         for method, flags in (
             ("residual", res_flag),
             ("isolation_forest", if_flag),
-            ("either", res_flag | if_flag),
+            ("flatline_rule", flat_flag),
+            ("residual_or_isolation_forest", res_flag | if_flag),
+            ("all_three_combined", res_flag | if_flag | flat_flag),
         ):
             m = detection_metrics(flags, labels, events, gap)
             rows.append({"seed": int(seed), "method": method, **m})
@@ -310,7 +317,7 @@ def run_anomalies(cfg: Config) -> dict[str, pd.DataFrame]:
                 test15.loc[win],
                 corrupted.loc[win],
                 res_flag.loc[win],
-                if_flag.loc[win],
+                if_flag.loc[win] | flat_flag.loc[win],
                 events[(events["start"] >= s0) & (events["start"] < s1)],
             )
     per_seed = pd.DataFrame(rows)
@@ -320,7 +327,7 @@ def run_anomalies(cfg: Config) -> dict[str, pd.DataFrame]:
     summary.columns = [f"{c}_{s}" for c, s in summary.columns]
     summary.to_csv(reports / "anomaly_injection_summary.csv")
     plots.anomalies(
-        preds["target"],
+        load_hourly,
         res_events.head(top_n),
         if_events.head(top_n),
         tz,

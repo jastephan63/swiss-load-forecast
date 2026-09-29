@@ -111,7 +111,8 @@ anomaly:
   isolation_forest:
     n_estimators: 300
     max_samples: 2048
-    false_flag_rate: 0.01
+    false_flag_rate: 0.002
+  flatline_min_run: 4
   event_merge_gap_hours: 2
   top_n_real: 10
   injection:

@@ -51,7 +51,9 @@ def write_weather(path: Path) -> None:
     frame = pd.DataFrame(
         {
             "time": idx.strftime("%Y-%m-%dT%H:%M"),
-            "temperature_2m": 5 + 5 * np.sin(2 * np.pi * idx.hour / 24) + rng.normal(0, 1, len(idx)),
+            "temperature_2m": 5
+            + 5 * np.sin(2 * np.pi * idx.hour / 24)
+            + rng.normal(0, 1, len(idx)),
             "shortwave_radiation": np.clip(400 * np.sin(np.pi * (idx.hour - 6) / 12), 0, None),
         }
     )
@@ -98,7 +100,13 @@ def test_pipeline_runs_end_to_end(small_project: Path) -> None:
     assert {"seasonal_naive", "linear_calendar", "lgbm_lagged_weather"} <= set(test.index)
     assert (test["MAPE_pct"] < 50).all()
     anomalies = run_anomalies(cfg)
-    assert set(anomalies["injection"].index) == {"residual", "isolation_forest", "either"}
+    assert set(anomalies["injection"].index) == {
+        "residual",
+        "isolation_forest",
+        "flatline_rule",
+        "residual_or_isolation_forest",
+        "all_three_combined",
+    }
     for name in (
         "01_forecast_week.png",
         "02_error_by_hour.png",

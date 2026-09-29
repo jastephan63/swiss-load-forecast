@@ -26,6 +26,12 @@ IF_FEATURES = [
 ]
 
 
+def flatline_flags(load: pd.Series, min_run: int) -> pd.Series:
+    run_id = load.ne(load.shift()).cumsum()
+    size = run_id.map(run_id.value_counts())
+    return (size >= min_run).rename("flatline_flag")
+
+
 def residual_scores(y: pd.Series, lo: pd.Series, hi: pd.Series) -> pd.Series:
     width = (hi - lo).clip(lower=1.0)
     excess = np.maximum(np.maximum(lo - y, y - hi), 0.0)
@@ -140,7 +146,8 @@ def flag_runs(flags: pd.Series, max_gap: pd.Timedelta, step: pd.Timedelta) -> pd
     if f.empty:
         return pd.DataFrame(columns=["start", "end"])
     idx = pd.DatetimeIndex(f.index)
-    new_run = np.r_[True, np.diff(idx.asi8) > (max_gap + step).value]
+    gaps = pd.TimedeltaIndex(idx[1:] - idx[:-1])
+    new_run = np.r_[True, gaps > max_gap + step]
     run_id = np.cumsum(new_run)
     grp = pd.Series(idx, index=idx).groupby(run_id)
     return pd.DataFrame({"start": grp.min().to_numpy(), "end": (grp.max() + step).to_numpy()})

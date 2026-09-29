@@ -69,9 +69,7 @@ def test_load_features_do_not_use_data_after_issue_time(load: pd.Series, day: st
 
 
 @pytest.mark.parametrize("day", ["2024-03-31", "2024-07-15", "2024-10-27"])
-def test_lagged_weather_does_not_use_data_after_issue_time(
-    weather: pd.DataFrame, day: str
-) -> None:
+def test_lagged_weather_does_not_use_data_after_issue_time(weather: pd.DataFrame, day: str) -> None:
     idx = target_day(day)
     clean = lagged_weather_features(weather, idx, SETUP, 16.0, 22.0)
     leaked = lagged_weather_features(corrupt_after_issue(weather, day), idx, SETUP, 16.0, 22.0)
@@ -141,4 +139,4 @@ def test_hourly_calendar_handles_dst_days() -> None:
     assert 2 not in set(spring["hour"])
     assert len(autumn) == 25
     assert (autumn["hour"] == 2).sum() == 2
-    assert spring["local_date"].nunique() == 1
+    assert (spring["local_date"] == spring["local_date"].iloc[0]).all()
