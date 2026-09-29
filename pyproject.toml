@@ -1,0 +1,63 @@
+[project]
+name = "swiss-load-forecast"
+version = "0.1.0"
+description = "Day-ahead forecasting and anomaly detection for Swiss national electricity load"
+authors = [
+    { name = "Jake Stephan", email = "jastephan63@gmail.com" }
+]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = [
+    "holidays==0.105",
+    "lightgbm==4.7.0",
+    "matplotlib==3.11.2",
+    "numpy==2.5.3",
+    "openpyxl==3.1.5",
+    "pandas==3.0.6",
+    "pyarrow==25.0.1",
+    "python-calamine==0.8.2",
+    "pyyaml==6.0.3",
+    "requests==2.34.2",
+    "scikit-learn==1.9.1",
+    "typer==0.27.2",
+]
+
+[project.scripts]
+slf = "swiss_load_forecast.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy==2.3.1",
+    "pandas-stubs==3.0.5.260914",
+    "pytest==9.1.1",
+    "ruff==0.16.9",
+    "types-pyyaml==6.0.12.20260906",
+    "types-requests==2.33.0.20260906",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF", "ANN", "PD", "NPY", "PTH"]
+ignore = ["PD901", "PD011", "RUF001", "RUF002", "RUF003", "ANN401"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["slow: end-to-end tests that train small models"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = true

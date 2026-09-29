@@ -1,0 +1,118 @@
+timezone: Europe/Zurich
+seed: 42
+
+paths:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+  models: models
+  reports: reports
+  figures: reports/figures
+
+swissgrid:
+  years: [2021, 2022, 2023, 2024, 2025]
+  url_template: "https://www.swissgrid.ch/dam/dataimport/energy-statistic/EnergieUebersichtCH-{year}.xlsx"
+  landing_page: "https://www.swissgrid.ch/en/home/operation/grid-data/generation.html"
+  sheet: Zeitreihen0h15
+  target_header_prefix: "Summe endverbrauchte Energie Regelblock Schweiz"
+  expected_unit: kWh
+  plausible_mw_range: [2000.0, 15000.0]
+  max_interpolation_intervals: 4
+
+split:
+  start: "2021-01-01"
+  test_start: "2025-07-01"
+  end: "2026-01-01"
+  cv_first_fold_start: "2023-07-01"
+  cv_fold_months: 3
+  cv_n_folds: 8
+
+forecast:
+  issue_hour_local: 10
+  lag_hours: [48, 72, 168, 336]
+  weekly_mean_weeks: 4
+
+weather:
+  api_url: "https://archive-api.open-meteo.com/v1/archive"
+  start: "2020-12-01"
+  end: "2025-12-31"
+  variables: [temperature_2m, shortwave_radiation]
+  heating_base_c: 16.0
+  cooling_base_c: 22.0
+  locations:
+    - {name: Zurich, latitude: 47.3769, longitude: 8.5417, cantons: {ZH: 1.0, SH: 1.0, AG: 0.5}}
+    - {name: Basel, latitude: 47.5596, longitude: 7.5886, cantons: {BS: 1.0, BL: 1.0, AG: 0.5}}
+    - {name: Bern, latitude: 46.9480, longitude: 7.4474, cantons: {BE: 1.0, SO: 1.0, FR: 1.0, JU: 1.0, NE: 1.0}}
+    - {name: Lausanne, latitude: 46.5197, longitude: 6.6323, cantons: {VD: 1.0, VS: 1.0}}
+    - {name: Geneva, latitude: 46.2044, longitude: 6.1432, cantons: {GE: 1.0}}
+    - {name: Lucerne, latitude: 47.0502, longitude: 8.3093, cantons: {LU: 1.0, ZG: 1.0, SZ: 1.0, OW: 1.0, NW: 1.0, UR: 1.0, GL: 1.0}}
+    - {name: St_Gallen, latitude: 47.4245, longitude: 9.3767, cantons: {SG: 1.0, TG: 1.0, AR: 1.0, AI: 1.0, GR: 1.0}}
+    - {name: Lugano, latitude: 46.0037, longitude: 8.9511, cantons: {TI: 1.0}}
+
+canton_population_thousands:
+  ZH: 1605
+  BE: 1071
+  LU: 424
+  UR: 38
+  SZ: 167
+  OW: 39
+  NW: 45
+  GL: 42
+  ZG: 131
+  FR: 339
+  SO: 285
+  BS: 201
+  BL: 296
+  SH: 85
+  AR: 56
+  AI: 17
+  SG: 536
+  GR: 204
+  AG: 725
+  TG: 293
+  TI: 359
+  VD: 845
+  VS: 359
+  NE: 178
+  GE: 523
+  JU: 74
+
+calendar:
+  holiday_threshold: 0.5
+  school_holiday_proxy:
+    - {name: spring, easter_offset_start: -7, easter_offset_end: 8}
+    - {name: summer, start: "07-05", end: "08-15"}
+    - {name: autumn, start: "10-01", end: "10-20"}
+    - {name: christmas, start: "12-24", end: "01-04"}
+
+models:
+  linear_alpha: 1.0
+  lightgbm:
+    n_estimators: 600
+    learning_rate: 0.03
+    num_leaves: 63
+    min_child_samples: 30
+    subsample: 0.8
+    subsample_freq: 1
+    colsample_bytree: 0.8
+    reg_lambda: 1.0
+    verbose: -1
+  quantiles: [0.05, 0.1, 0.9, 0.95]
+  interval_pairs: [[0.05, 0.95], [0.1, 0.9]]
+
+anomaly:
+  residual_interval: [0.05, 0.95]
+  residual_false_flag_rate: 0.01
+  isolation_forest:
+    n_estimators: 300
+    max_samples: 2048
+    false_flag_rate: 0.01
+  event_merge_gap_hours: 2
+  top_n_real: 10
+  injection:
+    seeds: [0, 1, 2, 3, 4]
+    per_type: 10
+    spike: {min_len: 1, max_len: 4, min_mag: 0.15, max_mag: 0.30}
+    drop: {min_len: 1, max_len: 8, min_mag: 0.20, max_mag: 0.40}
+    level_shift: {min_len: 8, max_len: 48, min_mag: 0.08, max_mag: 0.15}
+    flatline: {min_len: 8, max_len: 32}
