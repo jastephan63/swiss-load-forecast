@@ -108,6 +108,7 @@ models:
 anomaly:
   residual_interval: [0.05, 0.95]
   residual_false_flag_rate: 0.01
+  residual_min_width_mw: 200.0
   isolation_forest:
     n_estimators: 300
     max_samples: 2048

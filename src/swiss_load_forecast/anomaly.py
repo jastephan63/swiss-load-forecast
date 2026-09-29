@@ -32,8 +32,10 @@ def flatline_flags(load: pd.Series, min_run: int) -> pd.Series:
     return (size >= min_run).rename("flatline_flag")
 
 
-def residual_scores(y: pd.Series, lo: pd.Series, hi: pd.Series) -> pd.Series:
-    width = (hi - lo).clip(lower=1.0)
+def residual_scores(
+    y: pd.Series, lo: pd.Series, hi: pd.Series, min_width: float = 1.0
+) -> pd.Series:
+    width = (hi - lo).clip(lower=min_width)
     excess = np.maximum(np.maximum(lo - y, y - hi), 0.0)
     return (excess / width).rename("residual_score")
 

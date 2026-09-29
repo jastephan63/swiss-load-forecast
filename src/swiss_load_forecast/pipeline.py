@@ -197,6 +197,7 @@ def write_results_markdown(
 ) -> Path:
     s = summary.reset_index()
     fold_mae = per_fold.pivot_table(index="fold", columns="model", values="MAE_MW").reset_index()
+    fold_mae["fold"] = fold_mae["fold"].astype(int)
     day = by_day.pivot_table(index="day_category", columns="model", values="MAPE_pct").reset_index()
     parts = [
         "# Forecast results",
@@ -249,13 +250,14 @@ def run_anomalies(cfg: Config) -> dict[str, pd.DataFrame]:
     lo_q, hi_q = (float(x) for x in a["residual_interval"])
     col_lo, col_hi = f"{oracle.name}_q{lo_q:g}", f"{oracle.name}_q{hi_q:g}"
     rate = float(a["residual_false_flag_rate"])
+    min_width = float(a["residual_min_width_mw"])
     threshold = threshold_from_scores(
-        residual_scores(oof["target"], oof[col_lo], oof[col_hi]), rate
+        residual_scores(oof["target"], oof[col_lo], oof[col_hi], min_width), rate
     )
     holidays_daily = frame.groupby("local_date")["holiday_name"].first()
     calendar = pd.DataFrame({"holiday_name": holidays_daily})
     preds = pd.concat([oof.drop(columns="fold"), test])
-    scores = residual_scores(preds["target"], preds[col_lo], preds[col_hi])
+    scores = residual_scores(preds["target"], preds[col_lo], preds[col_hi], min_width)
     res_events = summarise_events(
         scores > threshold, scores, preds["target"], preds[oracle.name], calendar, tz, gap, H1
     )
@@ -293,7 +295,7 @@ def run_anomalies(cfg: Config) -> dict[str, pd.DataFrame]:
         fr = build_feature_frame(hourly, weather, cfg)
         te = fr.loc[fr.index >= test_start]
         qs = oracle.predict_quantiles(te)
-        s = residual_scores(te["target"], qs[col_lo], qs[col_hi])
+        s = residual_scores(te["target"], qs[col_lo], qs[col_hi], min_width)
         res_h = s > threshold
         res_flag = pd.Series(
             res_h.reindex(corrupted.index.floor("h")).fillna(False).to_numpy(dtype=bool),
