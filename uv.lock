@@ -1472,6 +1472,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "holidays" },
+    { name = "joblib" },
     { name = "lightgbm" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -1479,6 +1480,7 @@ dependencies = [
     { name = "pandas" },
     { name = "pyarrow" },
     { name = "python-calamine" },
+    { name = "python-dateutil" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "scikit-learn" },
@@ -1498,6 +1500,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "holidays", specifier = "==0.105" },
+    { name = "joblib", specifier = "==1.6.0" },
     { name = "lightgbm", specifier = "==4.7.0" },
     { name = "matplotlib", specifier = "==3.11.2" },
     { name = "numpy", specifier = "==2.5.3" },
@@ -1505,6 +1508,7 @@ requires-dist = [
     { name = "pandas", specifier = "==3.0.6" },
     { name = "pyarrow", specifier = "==25.0.1" },
     { name = "python-calamine", specifier = "==0.8.2" },
+    { name = "python-dateutil", specifier = "==2.9.0.post0" },
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "requests", specifier = "==2.34.2" },
     { name = "scikit-learn", specifier = "==1.9.1" },

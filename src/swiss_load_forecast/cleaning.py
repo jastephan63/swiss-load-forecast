@@ -120,7 +120,9 @@ def detect_convention(first_label: str, year: int) -> LabelConvention:
     raise DataValidationError(f"{year}: cannot infer timestamp convention from {first_label!r}")
 
 
-def labels_to_utc_start(labels: pd.Series, convention: LabelConvention, tz: str) -> pd.DatetimeIndex:
+def labels_to_utc_start(
+    labels: pd.Series, convention: LabelConvention, tz: str
+) -> pd.DatetimeIndex:
     naive = pd.DatetimeIndex(pd.to_datetime(labels, format=LABEL_FORMAT))
     first_occurrence = ~pd.Series(naive).duplicated(keep="first").to_numpy()
     local = naive.tz_localize(tz, ambiguous=first_occurrence, nonexistent="raise")
@@ -149,7 +151,12 @@ def clean_load(cfg: Config) -> tuple[pd.DataFrame, pd.DataFrame, ValidationRepor
             raise DataValidationError(f"Missing raw file {path}. Run `make data` first.")
         header, units, data = read_swissgrid_sheet(path, str(sg["sheet"]))
         frame, yrep = parse_year(
-            header, units, data, int(year), str(sg["target_header_prefix"]), str(sg["expected_unit"])
+            header,
+            units,
+            data,
+            int(year),
+            str(sg["target_header_prefix"]),
+            str(sg["expected_unit"]),
         )
         frame.index = labels_to_utc_start(frame["label"], yrep.convention, tz)
         report.years.append(yrep)
@@ -230,7 +237,8 @@ def write_report(report: ValidationReport, reports_dir: Path) -> Path:
         f"* Duplicate UTC intervals removed: {report.duplicate_utc_intervals}",
         f"* Missing intervals before cleaning: {report.missing_intervals}",
         f"* Values outside the plausible range set to missing: {report.out_of_range_values}",
-        f"* Intervals filled by time interpolation (gaps up to 1 h): {report.interpolated_intervals}",
+        f"* Intervals filled by time interpolation (gaps up to 1 h): "
+        f"{report.interpolated_intervals}",
         f"* Intervals still missing after cleaning: {report.remaining_missing_intervals}",
         f"* Longest run of identical consecutive values: {report.longest_identical_run}",
         f"* Hourly rows: {report.hourly_rows:,}, of which incomplete (set to missing): "

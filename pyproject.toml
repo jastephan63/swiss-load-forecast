@@ -10,6 +10,7 @@ license = { text = "MIT" }
 requires-python = ">=3.12"
 dependencies = [
     "holidays==0.105",
+    "joblib==1.6.0",
     "lightgbm==4.7.0",
     "matplotlib==3.11.2",
     "numpy==2.5.3",
@@ -17,6 +18,7 @@ dependencies = [
     "pandas==3.0.6",
     "pyarrow==25.0.1",
     "python-calamine==0.8.2",
+    "python-dateutil==2.9.0.post0",
     "pyyaml==6.0.3",
     "requests==2.34.2",
     "scikit-learn==1.9.1",
@@ -47,7 +49,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF", "ANN", "PD", "NPY", "PTH"]
-ignore = ["PD901", "PD011", "RUF001", "RUF002", "RUF003", "ANN401"]
+ignore = ["PD011", "RUF001", "RUF002", "RUF003", "ANN401"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ANN"]
