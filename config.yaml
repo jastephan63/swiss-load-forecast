@@ -96,7 +96,12 @@ models:
     subsample_freq: 1
     colsample_bytree: 0.8
     reg_lambda: 1.0
+    n_jobs: 4
     verbose: -1
+  lightgbm_quantile_overrides:
+    n_estimators: 300
+    num_leaves: 15
+    min_child_samples: 200
   quantiles: [0.05, 0.1, 0.9, 0.95]
   interval_pairs: [[0.05, 0.95], [0.1, 0.9]]
 

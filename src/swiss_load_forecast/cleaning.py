@@ -31,7 +31,7 @@ class YearReport:
     rows: int
     first_label: str
     last_label: str
-    convention: str
+    convention: LabelConvention
     header: str
     unit: str
     non_numeric: int

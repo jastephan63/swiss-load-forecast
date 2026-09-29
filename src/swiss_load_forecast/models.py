@@ -26,8 +26,11 @@ LINEAR_CALENDAR_NUMERIC = [
 
 
 class Forecaster(Protocol):
-    name: str
-    features: list[str]
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def features(self) -> list[str]: ...
 
     def fit(self, frame: pd.DataFrame) -> Forecaster: ...
 
@@ -89,6 +92,7 @@ class LightGBMModel:
     params: dict[str, Any]
     quantiles: list[float] = field(default_factory=list)
     seed: int = 42
+    quantile_params: dict[str, Any] = field(default_factory=dict)
     point: lgb.LGBMRegressor | None = None
     quantile_models: dict[float, lgb.LGBMRegressor] = field(default_factory=dict)
 
@@ -100,7 +104,8 @@ class LightGBMModel:
         x, y = data[self.features], data["target"]
         self.point = self._regressor(objective="regression").fit(x, y)
         self.quantile_models = {
-            q: self._regressor(objective="quantile", alpha=q).fit(x, y) for q in self.quantiles
+            q: self._regressor(objective="quantile", alpha=q, **self.quantile_params).fit(x, y)
+            for q in self.quantiles
         }
         return self
 
@@ -135,7 +140,9 @@ def build_models(
     quantiles: list[float],
     alpha: float,
     seed: int,
+    quantile_params: dict[str, Any] | None = None,
 ) -> list[Forecaster]:
+    qp = dict(quantile_params or {})
     lagged_numeric = LINEAR_CALENDAR_NUMERIC + [
         c for c in sets["lagged_weather"] if c not in CALENDAR_FEATURES
     ]
@@ -144,6 +151,6 @@ def build_models(
         LinearModel("linear_calendar", numeric=list(LINEAR_CALENDAR_NUMERIC), alpha=alpha),
         LinearModel("linear_lags_weather", numeric=lagged_numeric, alpha=alpha),
         LightGBMModel("lgbm_no_weather", sets["no_weather"], params, [], seed),
-        LightGBMModel("lgbm_lagged_weather", sets["lagged_weather"], params, quantiles, seed),
-        LightGBMModel("lgbm_oracle_weather", sets["oracle_weather"], params, quantiles, seed),
+        LightGBMModel("lgbm_lagged_weather", sets["lagged_weather"], params, quantiles, seed, qp),
+        LightGBMModel("lgbm_oracle_weather", sets["oracle_weather"], params, quantiles, seed, qp),
     ]

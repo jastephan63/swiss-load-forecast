@@ -87,6 +87,7 @@ def make_model_factory(cfg: Config) -> Callable[[], list[Forecaster]]:
             [float(q) for q in m["quantiles"]],
             float(m["linear_alpha"]),
             cfg.seed,
+            dict(m.get("lightgbm_quantile_overrides", {})),
         )
 
     return factory
