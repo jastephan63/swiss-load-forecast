@@ -2,6 +2,8 @@
 
 Day-ahead forecasts of hourly Swiss electricity consumption, with calibrated prediction intervals and two complementary anomaly detectors, built on public Swissgrid and Open-Meteo data. The pipeline is fully reproducible (`make all` or one `docker run`) and every number below comes from `reports/`.
 
+The pipeline is implemented twice, in **Python** (`src/`) and in **R** (`r/`), and both produce the same results on the same data. See [r/README.md](r/README.md).
+
 ## The problem
 
 A utility has to nominate tomorrow's energy by late morning today. Errors cost money in balancing energy, and unusual consumption (a cold snap, a bridge day, a failing meter feed) needs to be spotted quickly and explained. This project models that task at national level:
@@ -153,6 +155,10 @@ docker run --rm -v "$PWD/data:/app/data" -v "$PWD/reports:/app/reports" swiss-lo
 
 If the Swissgrid download fails, `make data` stops and prints the exact URLs and target paths so the files can be downloaded by hand. All settings (dates, locations, weights, model parameters, thresholds) live in `config.yaml`.
 
+## R implementation
+
+The R version in [`r/`](r/README.md) covers the same steps with `data.table`, `lightgbm`, `isotree`, `ggplot2` and `testthat`, pinned with `renv`, and runs with `make r-all` or `make r-docker`. Run on the same data, it reproduces the cleaned series to floating-point precision and the main model's test error exactly (MAE 183.5 MW, MAPE 2.99%). The linear baseline and the oracle model differ by less than 0.6 MW. Swiss cantonal holidays are implemented from their rules in R and match the Python `holidays` package on every canton-day from 2020 to 2026. R outputs are in `reports/r/`.
+
 ## Repository layout
 
 ```
@@ -168,6 +174,7 @@ src/swiss_load_forecast/
   anomaly.py                  residual, Isolation Forest, flatline rule, injection
   plots.py, pipeline.py, cli.py
 tests/                        unit tests (features, leakage, cleaning, anomalies) and an end-to-end smoke test
+r/                            R implementation of the same pipeline (see r/README.md)
 reports/                      metrics, validation report, anomaly lists, figures
 docs/swissgrid_structure.md   inspection of the raw workbooks
 ```

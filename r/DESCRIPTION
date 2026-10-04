@@ -1,0 +1,14 @@
+Type: project
+Description: R implementation of the Swiss day-ahead load forecasting and anomaly detection pipeline.
+Depends:
+    data.table,
+    digest,
+    ggplot2,
+    isotree,
+    jsonlite,
+    lightgbm,
+    readxl,
+    scales,
+    testthat,
+    writexl,
+    yaml

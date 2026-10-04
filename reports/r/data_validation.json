@@ -1,0 +1,98 @@
+{
+  "years": [
+    {
+      "year": 2021,
+      "rows": 35040,
+      "first_label": "01.01.2021 00:15",
+      "last_label": "01.01.2022 00:00",
+      "convention": "end",
+      "header": "Summe endverbrauchte Energie Regelblock Schweiz",
+      "unit": "kWh",
+      "non_numeric": 0,
+      "repeated_local_labels": 4,
+      "dst_days": {
+        "2021-03-28": 92,
+        "2021-10-31": 100
+      }
+    },
+    {
+      "year": 2022,
+      "rows": 35040,
+      "first_label": "01.01.2022 00:15",
+      "last_label": "01.01.2023 00:00",
+      "convention": "end",
+      "header": "Summe endverbrauchte Energie Regelblock Schweiz",
+      "unit": "kWh",
+      "non_numeric": 0,
+      "repeated_local_labels": 4,
+      "dst_days": {
+        "2022-03-27": 92,
+        "2022-10-30": 100
+      }
+    },
+    {
+      "year": 2023,
+      "rows": 35040,
+      "first_label": "01.01.2023 00:15",
+      "last_label": "01.01.2024 00:00",
+      "convention": "end",
+      "header": "Summe endverbrauchte Energie Regelblock Schweiz",
+      "unit": "kWh",
+      "non_numeric": 0,
+      "repeated_local_labels": 4,
+      "dst_days": {
+        "2023-03-26": 92,
+        "2023-10-29": 100
+      }
+    },
+    {
+      "year": 2024,
+      "rows": 35136,
+      "first_label": "01.01.2024 00:15",
+      "last_label": "01.01.2025 00:00",
+      "convention": "end",
+      "header": "Summe endverbrauchte Energie Regelblock Schweiz",
+      "unit": "kWh",
+      "non_numeric": 0,
+      "repeated_local_labels": 4,
+      "dst_days": {
+        "2024-03-31": 92,
+        "2024-10-27": 100
+      }
+    },
+    {
+      "year": 2025,
+      "rows": 35040,
+      "first_label": "01.01.2025 00:00",
+      "last_label": "31.12.2025 23:45",
+      "convention": "start",
+      "header": "Summe endverbrauchte Energie Regelblock Schweiz",
+      "unit": "kWh",
+      "non_numeric": 0,
+      "repeated_local_labels": 4,
+      "dst_days": {
+        "2025-03-30": 92,
+        "2025-10-26": 100
+      }
+    }
+  ],
+  "utc_start": "2020-12-31 23:00 UTC",
+  "utc_end": "2025-12-31 23:00 UTC",
+  "expected_intervals": 175296,
+  "observed_intervals": 175296,
+  "duplicate_utc_intervals": 0,
+  "missing_intervals": 0,
+  "out_of_range_values": 0,
+  "interpolated_intervals": 0,
+  "remaining_missing_intervals": 0,
+  "longest_identical_run": 1,
+  "hourly_rows": 43824,
+  "hourly_incomplete": 0,
+  "weather": {
+    "locations_and_weights": "Zurich 0.230, Basel 0.096, Bern 0.218, Lausanne 0.135, Geneva 0.059, Lucerne 0.099, St_Gallen 0.124, Lugano 0.040",
+    "implausible_temperature_values": 0,
+    "implausible_radiation_values": 0,
+    "hours": 44567,
+    "remaining_missing_hours": 0
+  }
+}

@@ -1,0 +1,190 @@
+rds <- function(cfg, dir, name) file.path(cfg$r_paths[[dir]], paste0(name, ".rds"))
+
+run_data <- function(cfg, download = TRUE, force = FALSE) {
+  ensure_dirs(cfg)
+  if (download) download_all(cfg, force)
+  cleaned <- clean_load(cfg)
+  wx <- national_weather(cfg)
+  cleaned$report$weather <- wx$info
+  saveRDS(cleaned$q15, rds(cfg, "interim", "load_15min"))
+  saveRDS(cleaned$hourly, rds(cfg, "processed", "load_hourly"))
+  saveRDS(wx$weather, rds(cfg, "processed", "weather_hourly"))
+  write_validation_report(cleaned$report, cfg$r_paths$reports)
+}
+
+model_factory <- function(cfg) {
+  m <- cfg$models
+  sets <- feature_sets(setup_from_config(cfg))
+  qp <- if (is.null(m$lightgbm_quantile_overrides)) list() else m$lightgbm_quantile_overrides
+  function() build_models(sets, m$lightgbm, unlist(m$quantiles), cfg$seed, qp)
+}
+
+cv_folds <- function(cfg) {
+  s <- cfg$split
+  rolling_origin_folds(s$cv_first_fold_start, s$cv_n_folds, s$cv_fold_months, cfg$timezone,
+                       s$test_start)
+}
+
+run_train <- function(cfg) {
+  ensure_dirs(cfg)
+  hourly <- readRDS(rds(cfg, "processed", "load_hourly"))
+  weather <- readRDS(rds(cfg, "processed", "weather_hourly"))
+  frame <- build_feature_frame(hourly, weather, cfg)
+  saveRDS(frame, rds(cfg, "processed", "features"))
+  cut <- utc_from_local(cfg, cfg$split$test_start)
+  dev <- frame[utc < cut]
+  test <- frame[utc >= cut]
+  factory <- model_factory(cfg)
+  oof <- run_cv(dev, factory, cv_folds(cfg))
+  saveRDS(oof, rds(cfg, "processed", "cv_predictions"))
+  final <- fit_predict(factory(), dev, test)
+  saveRDS(final$preds, rds(cfg, "processed", "test_predictions"))
+  saveRDS(final$models, rds(cfg, "models", "models"))
+  gain <- feature_importance(final$models$lgbm_lagged_weather)
+  data.table::fwrite(data.table::data.table(feature = names(gain), gain = gain),
+                     file.path(cfg$r_paths$reports, "feature_importance_gain.csv"))
+  invisible(TRUE)
+}
+
+md_table <- function(df, digits = 1) {
+  df <- as.data.frame(df)
+  cells <- lapply(df, function(v) if (is.numeric(v) && any(v %% 1 != 0, na.rm = TRUE))
+    formatC(v, format = "f", digits = digits) else as.character(v))
+  rows <- do.call(paste, c(cells, sep = " | "))
+  c(paste0("| ", paste(names(df), collapse = " | "), " |"),
+    paste0("|", strrep("---|", ncol(df))), paste0("| ", rows, " |"))
+}
+
+run_evaluate <- function(cfg) {
+  frame <- readRDS(rds(cfg, "processed", "features"))
+  oof <- readRDS(rds(cfg, "processed", "cv_predictions"))
+  test <- readRDS(rds(cfg, "processed", "test_predictions"))
+  out <- cfg$r_paths$reports
+  per_fold <- metrics_table(oof, by_fold = TRUE)
+  summary <- cv_summary(per_fold)
+  test_metrics <- metrics_table(test, by_fold = FALSE)[, fold := NULL][order(MAE_MW)]
+  data.table::fwrite(per_fold, file.path(out, "metrics_cv_per_fold.csv"))
+  data.table::fwrite(summary, file.path(out, "metrics_cv_summary.csv"))
+  data.table::fwrite(test_metrics, file.path(out, "metrics_test.csv"))
+  models <- model_columns(test)
+  frame[, day_category := day_category(frame)]
+  by_hour <- breakdown(test, frame, "hour", models)
+  by_weekday <- breakdown(test, frame, "weekday", models)
+  by_day <- breakdown(test, frame, "day_category", models)
+  data.table::fwrite(by_hour, file.path(out, "test_error_by_hour.csv"))
+  data.table::fwrite(by_weekday, file.path(out, "test_error_by_weekday.csv"))
+  data.table::fwrite(by_day, file.path(out, "test_error_by_day_category.csv"))
+  pairs <- lapply(cfg$models$interval_pairs, unlist)
+  cov <- data.table::rbindlist(lapply(c("lgbm_lagged_weather", "lgbm_oracle_weather"), function(m) {
+    margins <- stats::setNames(lapply(pairs, function(p) conformal_margin(
+      oof$target, oof[[sprintf("%s_q%s", m, format_q(p[1]))]],
+      oof[[sprintf("%s_q%s", m, format_q(p[2]))]], p[2] - p[1])),
+      vapply(pairs, function(p) sprintf("%s-%s", format_q(p[1]), format_q(p[2])), ""))
+    rbind(interval_coverage(oof, m, pairs)[, period := "cv"],
+          interval_coverage(test, m, pairs, margins)[, period := "test"])
+  }))
+  data.table::fwrite(cov, file.path(out, "interval_coverage.csv"))
+  margin <- cov[model == "lgbm_lagged_weather" & interval == "0.05-0.95" & variant == "conformal",
+                margin_MW]
+  gain <- data.table::fread(file.path(out, "feature_importance_gain.csv"))
+  figs <- cfg$r_paths$figures
+  plot_forecast_week(test, cfg$timezone, file.path(figs, "01_forecast_week.png"))
+  plot_error_by_hour(by_hour, file.path(figs, "02_error_by_hour.png"))
+  plot_feature_importance(stats::setNames(gain$gain, gain$feature),
+                          file.path(figs, "03_feature_importance.png"))
+  plot_interval_coverage(test, frame, margin, file.path(figs, "04_interval_coverage.png"))
+  fold_mae <- data.table::dcast(per_fold, fold ~ model, value.var = "MAE_MW")
+  day <- data.table::dcast(by_day, day_category ~ model, value.var = "MAPE_pct")
+  lines <- c("# Forecast results (R pipeline)", "",
+             "Generated by `make r-evaluate`. Errors in MW of hourly average load; MAPE in percent.",
+             "", "## Rolling-origin cross-validation (mean and sd over folds)", "", md_table(summary),
+             "", "## MAE per fold (MW)", "", md_table(fold_mae), "",
+             "## Held-out test period", "", md_table(test_metrics), "",
+             "## Test MAPE by day category (%)", "", md_table(day, 2), "",
+             "## Prediction interval coverage", "", md_table(cov, 3), "")
+  writeLines(lines, file.path(out, "results.md"), useBytes = TRUE)
+  list(cv = summary, test = test_metrics, coverage = cov)
+}
+
+run_anomalies <- function(cfg) {
+  frame <- readRDS(rds(cfg, "processed", "features"))
+  oof <- readRDS(rds(cfg, "processed", "cv_predictions"))
+  test <- readRDS(rds(cfg, "processed", "test_predictions"))
+  models <- readRDS(rds(cfg, "models", "models"))
+  hourly <- readRDS(rds(cfg, "processed", "load_hourly"))
+  weather <- readRDS(rds(cfg, "processed", "weather_hourly"))
+  q15 <- readRDS(rds(cfg, "interim", "load_15min"))
+  a <- cfg$anomaly
+  tz <- cfg$timezone
+  out <- cfg$r_paths$reports
+  gap <- a$event_merge_gap_hours * 3600
+  oracle <- models$lgbm_oracle_weather
+  rng <- unlist(a$residual_interval)
+  col_lo <- sprintf("lgbm_oracle_weather_q%s", format_q(rng[1]))
+  col_hi <- sprintf("lgbm_oracle_weather_q%s", format_q(rng[2]))
+  minw <- a$residual_min_width_mw
+  threshold <- threshold_from_scores(
+    residual_scores(oof$target, oof[[col_lo]], oof[[col_hi]], minw), a$residual_false_flag_rate)
+  calendar <- unique(frame[, .(local_date, holiday_name)])
+  preds <- rbind(oof[, fold := NULL], test, fill = TRUE)
+  scores <- residual_scores(preds$target, preds[[col_lo]], preds[[col_hi]], minw)
+  res_events <- summarise_events(preds$utc, scores > threshold, scores, preds$target,
+                                 preds$lgbm_oracle_weather, calendar, tz, gap, 3600)
+  res_events <- res_events[order(-abs_deviation_MWh)]
+  data.table::fwrite(res_events, file.path(out, "anomalies_residual_all.csv"))
+  feats <- if_features(q15$utc, q15$load_mw, tz)
+  test_start <- utc_from_local(cfg, cfg$split$test_start)
+  iso <- a$isolation_forest
+  det <- fit_isolation_forest(feats[q15$utc < test_start], iso$n_estimators, iso$max_samples,
+                              iso$false_flag_rate, cfg$seed)
+  if_score <- score_isolation_forest(det, feats)
+  if_events <- summarise_events(q15$utc, if_score > det$threshold, if_score, q15$load_mw, NULL,
+                                calendar, tz, gap, 900)
+  if_events <- if_events[order(-max_score)]
+  data.table::fwrite(if_events, file.path(out, "anomalies_isolation_forest_all.csv"))
+  in_test <- q15$utc >= test_start
+  test_utc <- q15$utc[in_test]
+  inj <- a$injection
+  rows <- list()
+  for (seed in unlist(inj$seeds)) {
+    corrupted <- inject_anomalies(test_utc, q15$load_mw[in_test], inj, inj$per_type, seed)
+    full <- data.table::copy(q15)
+    full[in_test, load_mw := corrupted$load]
+    fr <- build_feature_frame(to_hourly(full), weather, cfg)
+    te <- fr[utc >= test_start]
+    qs <- predict_quantiles(oracle, te)
+    s <- residual_scores(te$target, qs[[col_lo]], qs[[col_hi]], minw)
+    hour_of <- as.numeric(test_utc) - as.numeric(test_utc) %% 3600
+    res_flag <- (s > threshold)[match(hour_of, as.numeric(te$utc))]
+    res_flag[is.na(res_flag)] <- FALSE
+    fall <- if_features(full$utc, full$load_mw, tz)[in_test]
+    if_flag <- score_isolation_forest(det, fall) > det$threshold
+    flat_flag <- flatline_flags(corrupted$load, a$flatline_min_run)
+    methods <- list(residual = res_flag, isolation_forest = if_flag, flatline_rule = flat_flag,
+                    residual_or_isolation_forest = res_flag | if_flag,
+                    all_three_combined = res_flag | if_flag | flat_flag)
+    for (mname in names(methods)) {
+      rows[[length(rows) + 1]] <- data.table::as.data.table(c(
+        list(seed = seed, method = mname),
+        detection_metrics(test_utc, methods[[mname]], corrupted$labels, corrupted$events, gap)))
+    }
+  }
+  per_seed <- data.table::rbindlist(rows)
+  data.table::fwrite(per_seed, file.path(out, "anomaly_injection_per_seed.csv"))
+  metric_cols <- setdiff(names(per_seed), c("seed", "method"))
+  summary <- per_seed[, lapply(.SD, mean), by = method, .SDcols = metric_cols]
+  data.table::fwrite(summary, file.path(out, "anomaly_injection_summary.csv"))
+  top <- a$top_n_real
+  plot_anomalies(hourly, head(res_events, top), head(if_events, top), tz,
+                 file.path(cfg$r_paths$figures, "05_anomalies.png"))
+  lines <- c("# Anomaly detection results (R pipeline)", "", "Generated by `make r-anomalies`.", "",
+             sprintf("* Residual threshold (exceedance beyond the interval, in interval widths): %.3f", threshold),
+             sprintf("* Isolation Forest score threshold (isotree standardised score): %.4f", det$threshold),
+             "", "## Synthetic anomaly injection (mean over seeds)", "", md_table(summary, 2), "",
+             sprintf("## Top %d real anomalies, residual method", top), "",
+             md_table(head(res_events, top), 1), "",
+             sprintf("## Top %d real anomalies, Isolation Forest", top), "",
+             md_table(head(if_events, top), 3), "")
+  writeLines(lines, file.path(out, "anomalies.md"), useBytes = TRUE)
+  list(injection = summary, residual = res_events, isolation_forest = if_events)
+}

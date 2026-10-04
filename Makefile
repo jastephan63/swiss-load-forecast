@@ -40,3 +40,31 @@ clean:
 docker:
 	docker build -t swiss-load-forecast .
 	docker run --rm -v "$(CURDIR)/data:/app/data" -v "$(CURDIR)/reports:/app/reports" swiss-load-forecast
+
+RSCRIPT = cd r && Rscript run.R
+
+.PHONY: r-install r-data r-train r-evaluate r-anomalies r-all r-test r-docker
+
+r-install:
+	cd r && Rscript -e 'renv::restore(prompt = FALSE)'
+
+r-data:
+	$(RSCRIPT) data
+
+r-train:
+	$(RSCRIPT) train
+
+r-evaluate:
+	$(RSCRIPT) evaluate
+
+r-anomalies:
+	$(RSCRIPT) anomalies
+
+r-all: r-data r-train r-evaluate r-anomalies
+
+r-test:
+	cd r && Rscript tests/run_tests.R
+
+r-docker:
+	docker build -f r/Dockerfile -t swiss-load-forecast-r .
+	docker run --rm -v "$(CURDIR)/data:/app/data" -v "$(CURDIR)/reports:/app/reports" swiss-load-forecast-r

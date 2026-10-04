@@ -7,3 +7,5 @@ reports
 .pytest_cache
 .ruff_cache
 .mypy_cache
+r/renv/library
+r/renv/staging
