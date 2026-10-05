@@ -2,8 +2,6 @@
 
 Day-ahead forecasts of hourly Swiss electricity consumption, with calibrated prediction intervals and two complementary anomaly detectors, built on public Swissgrid and Open-Meteo data. The pipeline is fully reproducible (`make all` or one `docker run`) and every number below comes from `reports/`.
 
-*Kurzfassung auf Deutsch: [README.de.md](README.de.md). Model card: [MODEL_CARD.md](MODEL_CARD.md).*
-
 ## The problem
 
 A utility has to nominate tomorrow's energy by late morning today. Errors cost money in balancing energy, and unusual consumption (a cold snap, a bridge day, a failing meter feed) needs to be spotted quickly and explained. This project models that task at national level:
